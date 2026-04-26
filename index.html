@@ -229,6 +229,13 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
         </div>
       </div>
 
+      <!-- GISリンク -->
+      <div class="card">
+        <div class="card-title">今すぐ確認できるGISリンク</div>
+        <div id="gisLinks" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <p style="margin-top:10px;font-size:11px;color:var(--gray-mid);">※ クリックするとこの物件の座標でGISマップが直接開きます</p>
+      </div>
+
       <!-- 要確認チェックリスト -->
       <div class="card">
         <div class="card-title">要確認チェックリスト</div>
@@ -316,6 +323,68 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
 </div>
 
 <script>
+
+// ==================== GIS LINK DB ====================
+const CITY_CODE = {
+  '名古屋市':23100,'一宮市':23203,'豊田市':23211,'岡崎市':23202,'春日井市':23212,
+  '豊橋市':23201,'刈谷市':23216,'安城市':23219,'西尾市':23220,'大府市':23223,
+  '知多市':23224,'東海市':23222,'半田市':23205,'豊川市':23206,'犬山市':23208,
+  '小牧市':23213,'稲沢市':23214,'尾張旭市':23225,'日進市':23232,'清須市':23240,
+  '北名古屋市':23241,'蟹江町':23342,'東郷町':23365,'豊明市':23231,'みよし市':23244,
+  '長久手市':23246,'碧南市':23215,'知立市':23228,'弥富市':23243,'あま市':23245,
+  '愛西市':23242,'津島市':23204,'江南市':23210,'岩倉市':23229,'大口町':23361,
+  '扶桑町':23362,'豊山町':23356,'高浜市':23227,'蒲郡市':23207,'田原市':23239,
+  '新城市':23221,'幸田町':23424,'設楽町':23441,'豊根村':23501,
+};
+
+function getGISLinks(city, lat, lon) {
+  const links = [];
+  const code = CITY_CODE[city];
+
+  // 用途地域
+  if (city === '名古屋市') {
+    links.push({
+      label: '名古屋市 都市計画情報（用途地域）',
+      url: `https://www2.wagmap.jp/nagoya-tokei/Map?mid=4&mpx=${lon}&mpy=${lat}&mps=2500&mp=1`,
+      icon: '🏙️'
+    });
+  } else if (city === '一宮市') {
+    links.push({
+      label: '一宮市 138マップ（都市計画情報）',
+      url: `https://www.sonicweb-asp.jp/ichinomiya/map?theme=th_90&x=${lon}&y=${lat}&zoom=15`,
+      icon: '🗺️'
+    });
+  } else if (code) {
+    links.push({
+      label: `${city} 用途地域マップ（全国GIS）`,
+      url: `https://cityzone.mapexpert.net/ZoneMap?L=${code}&N=${encodeURIComponent(city)}`,
+      icon: '🗺️'
+    });
+  } else {
+    links.push({
+      label: `愛知県 都市計画GIS（マップあいち）`,
+      url: `https://maps.pref.aichi.jp/`,
+      icon: '🗺️'
+    });
+  }
+
+  // ハザード（座標付き）
+  links.push({
+    label: 'この物件のハザードマップを開く（国土地理院）',
+    url: `https://disaportal.gsi.go.jp/hazardmap/index.html?code=1&lat=${lat}&lng=${lon}&zoom=16`,
+    icon: '🌊'
+  });
+
+  // 不動産情報ライブラリ（用途地域も見れる）
+  links.push({
+    label: '不動産情報ライブラリ（国交省）で確認',
+    url: `https://www.reinfolib.mlit.go.jp/?lat=${lat}&lng=${lon}&z=17`,
+    icon: '🏛️'
+  });
+
+  return links;
+}
+
 // ==================== STATE ====================
 const STORAGE_KEY = 'landResearch_v2';
 let currentResult = null;
@@ -496,19 +565,22 @@ async function fetchZoningFree(lat, lon) {
 
 // ==================== HAZARD ====================
 async function fetchHazardGSI(lat, lon) {
-  // 国土地理院ハザードマップAPI（CORS対応済み）
+  const results = {};
+  // 洪水（国土地理院 洪水浸水想定区域タイル）
   try {
-    const url = `https://api.f-roc.net/hazard?lat=${lat}&lon=${lon}`;
-    const res = await fetch(url);
-    if (res.ok) return await res.json();
+    const z=15, x=Math.floor((lon+180)/360*Math.pow(2,z));
+    const y=Math.floor((1-Math.log(Math.tan(lat*Math.PI/180)+1/Math.cos(lat*Math.PI/180))/Math.PI)/2*Math.pow(2,z));
+    const r = await fetch(`https://disaportaldata.gsi.go.jp/rasiter/usehazardinfo?lon=${lon}&lat=${lat}`);
+    if(r.ok){ const d=await r.json(); Object.assign(results,d); }
   } catch {}
-  // フォールバック：重ねるハザードマップ
-  try {
-    const url = `https://disaportaldata.gsi.go.jp/rasiter/usehazardinfo?lon=${lon}&lat=${lat}`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return await res.json();
-  } catch { return null; }
+  // フォールバック：重ねるハザードマップ API v2
+  if(Object.keys(results).length===0){
+    try {
+      const r = await fetch(`https://map.hazardlab.jp/haz/query?lat=${lat}&lng=${lon}&type=all`);
+      if(r.ok){ const d=await r.json(); Object.assign(results,d); }
+    } catch {}
+  }
+  return Object.keys(results).length>0 ? results : null;
 }
 
 // ==================== RENDER ====================
@@ -548,6 +620,25 @@ function renderResults(r) {
   const store = getStore();
   const savedMemo = store.memos && store.memos[addr] ? store.memos[addr] : '';
   document.getElementById('memoArea').value = savedMemo;
+
+  // GISリンクを表示
+  const gisLinks = getGISLinks(city, geo.lat, geo.lon);
+  const gisEl = document.getElementById('gisLinks');
+  if (gisEl) {
+    gisEl.innerHTML = gisLinks.map(l => `
+      <a href="${l.url}" target="_blank" style="
+        display:flex; align-items:center; gap:10px; padding:11px 14px;
+        border:1px solid var(--border); border-radius:var(--radius);
+        background:white; color:var(--text); text-decoration:none;
+        font-size:13px; transition:all 0.15s;
+      " onmouseover="this.style.borderColor='var(--blue)';this.style.background='var(--blue-light)'"
+         onmouseout="this.style.borderColor='var(--border)';this.style.background='white'">
+        <span style="font-size:18px;">${l.icon}</span>
+        <span>${l.label}</span>
+        <span style="margin-left:auto;color:var(--blue);font-size:12px;">開く →</span>
+      </a>
+    `).join('');
+  }
 
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -635,11 +726,17 @@ function renderHazard(h) {
   };
 
   if (!h) {
+    const lat = currentResult ? currentResult.geo.lat : 35.18;
+    const lon = currentResult ? currentResult.geo.lon : 136.90;
+    const gsiUrl = `https://disaportal.gsi.go.jp/hazardmap/index.html?code=1&lat=${lat}&lng=${lon}&zoom=15`;
     el.innerHTML = `
       <table class="risk-table">
         ${items.map(i => `<tr><td>${i.name}</td><td class="risk-unknown">要確認</td></tr>`).join('')}
       </table>
-      <div style="margin-top:8px; font-size:12px; color:var(--gray-mid);">ハザードAPIへの接続に失敗しました。上部リンクから手動で確認してください。</div>
+      <div style="margin-top:12px; padding:12px 14px; background:var(--blue-light); border-radius:var(--radius); font-size:13px;">
+        <a href="${gsiUrl}" target="_blank" style="color:var(--blue); font-weight:600;">重ねるハザードマップでこの物件を確認する</a><br>
+        <span style="font-size:11px; color:var(--gray-mid); margin-top:4px; display:block;">クリックするとこの物件の座標でハザードマップが自動で開きます</span>
+      </div>
     `;
     return;
   }
