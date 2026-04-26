@@ -1151,5 +1151,21 @@ function appendAIMessage(role, text, id, thinking) {
 }
 
 </script>
+
+<!-- AI アドバイザーパネル -->
+<div class="ai-overlay" id="aiOverlay" onclick="closeAI(event)">
+  <div class="ai-panel">
+    <div class="ai-header">
+      <h2>🤖 不動産AIアドバイザー</h2>
+      <button class="ai-close" onclick="document.getElementById('aiOverlay').style.display='none'">×</button>
+    </div>
+    <div class="ai-context" id="aiContext">土地情報を読み込んでいます...</div>
+    <div class="ai-messages" id="aiMessages"></div>
+    <div class="ai-input-row">
+      <textarea id="aiInput" placeholder="例：この土地の仕入れリスクを教えてください" onkeydown="handleAIKey(event)"></textarea>
+      <button class="ai-send" id="aiSend" onclick="sendAI()">送信</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
