@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用地調査支援ツール｜パナソニックホームズ</title>
+<style>
+:root {
+  --blue: #1A5FA8;
+  --blue-light: #E8F0FA;
+  --blue-mid: #4A84C4;
+  --green: #1B7A4E;
+  --green-light: #E6F5EE;
+  --amber: #B85C00;
+  --amber-light: #FDF0E0;
+  --red: #C0392B;
+  --red-light: #FDECEA;
+  --gray: #F4F5F7;
+  --gray-mid: #8C8F96;
+  --gray-dark: #3A3D45;
+  --border: #D8DAE0;
+  --text: #1E2028;
+  --text-sub: #5A5D66;
+  --white: #FFFFFF;
+  --radius: 8px;
+  --shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Hiragino Kaku Gothic ProN','Meiryo',sans-serif; background: #F0F2F6; color: var(--text); font-size: 14px; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Layout */
+.container { max-width: 960px; margin: 0 auto; padding: 0 16px 60px; }
+header { background: var(--blue); color: white; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 52px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
+.header-badge { font-size: 11px; background: rgba(255,255,255,0.2); padding: 2px 10px; border-radius: 20px; }
+.tabs { display: flex; gap: 2px; background: var(--border); border-radius: 10px; padding: 3px; margin: 20px 0 0; }
+.tab { flex: 1; padding: 8px 4px; text-align: center; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 7px; color: var(--text-sub); transition: all 0.15s; }
+.tab.active { background: white; color: var(--blue); box-shadow: var(--shadow); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Cards */
+.card { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; margin-top: 16px; box-shadow: var(--shadow); }
+.card-title { font-size: 13px; font-weight: 700; color: var(--text-sub); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+.card-title::before { content: ''; display: block; width: 3px; height: 14px; background: var(--blue); border-radius: 2px; }
+
+/* Search */
+.search-box { display: flex; gap: 8px; }
+.search-box input { flex: 1; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 14px; color: var(--text); background: var(--white); transition: border 0.15s; }
+.search-box input:focus { outline: none; border-color: var(--blue); }
+.btn { padding: 10px 20px; border-radius: var(--radius); border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: #154D8E; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background: white; color: var(--blue); border: 1.5px solid var(--blue); }
+.btn-secondary:hover { background: var(--blue-light); }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #A93226; }
+
+/* API Key Input */
+.api-notice { background: var(--amber-light); border: 1px solid #EDCDA0; border-radius: var(--radius); padding: 12px 14px; margin-top: 12px; font-size: 13px; color: var(--amber); }
+.api-key-row { display: flex; gap: 8px; margin-top: 8px; }
+.api-key-row input { flex: 1; padding: 7px 12px; border: 1px solid #EDCDA0; border-radius: 6px; font-size: 13px; font-family: monospace; }
+.api-key-row button { padding: 7px 14px; font-size: 12px; border-radius: 6px; border: none; background: var(--amber); color: white; cursor: pointer; font-weight: 600; }
+
+/* Stat grid */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.stat-card { padding: 12px 14px; border-radius: 6px; background: var(--gray); }
+.stat-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+.stat-value { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.stat-sub { font-size: 11px; color: var(--gray-mid); margin-top: 2px; }
+.stat-card.ok { background: var(--green-light); }
+.stat-card.ok .stat-value { color: var(--green); }
+.stat-card.warn { background: var(--amber-light); }
+.stat-card.warn .stat-value { color: var(--amber); }
+.stat-card.danger { background: var(--red-light); }
+.stat-card.danger .stat-value { color: var(--red); }
+.stat-card.info { background: var(--blue-light); }
+.stat-card.info .stat-value { color: var(--blue); }
+
+/* Zoning badge */
+.zone-alert { margin-top: 10px; padding: 10px 12px; border-radius: 6px; font-size: 13px; }
+.zone-alert.danger { background: var(--red-light); color: var(--red); border-left: 3px solid var(--red); }
+.zone-alert.warn { background: var(--amber-light); color: var(--amber); border-left: 3px solid var(--amber); }
+.zone-alert.ok { background: var(--green-light); color: var(--green); border-left: 3px solid var(--green); }
+
+/* Risk table */
+.risk-table { width: 100%; border-collapse: collapse; }
+.risk-table tr { border-bottom: 1px solid var(--gray); }
+.risk-table tr:last-child { border-bottom: none; }
+.risk-table td { padding: 9px 4px; font-size: 13px; }
+.risk-table td:first-child { color: var(--text-sub); }
+.risk-table td:last-child { font-weight: 600; text-align: right; }
+.risk-low { color: var(--green); }
+.risk-mid { color: var(--amber); }
+.risk-high { color: var(--red); }
+.risk-unknown { color: var(--gray-mid); }
+
+/* Checklist */
+.checklist { display: flex; flex-direction: column; gap: 8px; }
+.check-item { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 6px; background: white; cursor: pointer; transition: border 0.15s; }
+.check-item:hover { border-color: var(--blue); }
+.check-item.checked { background: var(--green-light); border-color: #9ED8BC; }
+.check-box { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.check-item.checked .check-box { background: var(--green); border-color: var(--green); }
+.check-item.checked .check-box::after { content: '✓'; color: white; font-size: 12px; font-weight: 700; }
+.check-body { flex: 1; }
+.check-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.check-desc { font-size: 12px; color: var(--text-sub); line-height: 1.5; }
+.check-office { font-size: 11px; color: var(--gray-mid); margin-top: 4px; }
+.check-tag { display: inline-block; font-size: 10px; padding: 1px 7px; border-radius: 10px; margin-right: 4px; margin-bottom: 3px; font-weight: 600; }
+.tag-req { background: var(--red-light); color: var(--red); }
+.tag-opt { background: var(--blue-light); color: var(--blue); }
+.tag-adj { background: var(--amber-light); color: var(--amber); }
+
+/* Memo */
+.memo-area { width: 100%; min-height: 100px; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--radius); font-size: 13px; font-family: inherit; color: var(--text); resize: vertical; }
+.memo-area:focus { outline: none; border-color: var(--blue); }
+.memo-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+
+/* History */
+.history-item { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: all 0.15s; }
+.history-item:hover { border-color: var(--blue); background: var(--blue-light); }
+.history-addr { font-size: 13px; font-weight: 600; color: var(--text); }
+.history-meta { font-size: 11px; color: var(--gray-mid); margin-top: 3px; display: flex; gap: 12px; }
+.history-yoto { font-size: 12px; color: var(--blue); margin-top: 4px; }
+.history-actions { display: flex; gap: 6px; margin-top: 8px; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--gray-mid); }
+.empty-state .icon { font-size: 32px; margin-bottom: 10px; }
+
+/* Loading */
+.loading { display: none; align-items: center; gap: 10px; padding: 16px 0; color: var(--text-sub); font-size: 13px; }
+.spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.error-box { display: none; padding: 12px 14px; border-radius: var(--radius); background: var(--red-light); color: var(--red); font-size: 13px; margin-top: 10px; }
+
+/* Results section */
+.results { display: none; }
+.section-divider { height: 1px; background: var(--border); margin: 20px 0; }
+.coord-note { font-size: 11px; color: var(--gray-mid); margin-top: 6px; }
+.result-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+/* Print / PDF */
+@media print {
+  header, .tabs, .search-box, .api-notice, .result-actions, .btn, .history-actions, .memo-actions { display: none !important; }
+  body { background: white; }
+  .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+  .check-item { break-inside: avoid; }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .search-box { flex-direction: column; }
+}
+
+/* Progress bar */
+.progress-bar { width: 100%; height: 4px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; display: none; }
+.progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width 0.3s; }
+
+/* Tooltip */
+.tooltip { position: relative; display: inline-block; }
+.tooltip .tip { visibility: hidden; background: var(--gray-dark); color: white; font-size: 11px; padding: 4px 8px; border-radius: 4px; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 10; }
+.tooltip:hover .tip { visibility: visible; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔍 用地調査支援ツール</h1>
+  <span class="header-badge">愛知県特化版 v2.0</span>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('search')">📍 調査</div>
+    <div class="tab" onclick="switchTab('history')">📋 履歴</div>
+    <div class="tab" onclick="switchTab('settings')">⚙️ 設定</div>
+  </div>
+
+  <!-- ===== 調査タブ ===== -->
+  <div class="tab-panel active" id="tab-search">
+
+    <div class="card">
+      <div class="card-title">住所入力</div>
+      <div class="search-box">
+        <input type="text" id="addr" placeholder="例：愛知県一宮市今伊勢町本神戸1番地" />
+        <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">調査する</button>
+      </div>
+      <div id="apiKeyNotice" class="api-notice" style="display:none;">
+        ⚠️ 国土交通省APIキーを設定すると用途地域の精度が上がります。
+        <div class="api-key-row">
+          <input type="text" id="apiKeyInput" placeholder="APIキーをここに貼り付け" />
+          <button onclick="saveApiKey()">保存</button>
+        </div>
+        <div style="margin-top:6px; font-size:12px;">
+          申請先：<a href="https://www.reinfolib.mlit.go.jp/api/request/" target="_blank">不動産情報ライブラリ（国交省）</a> ※審査後5営業日以内に発行
+        </div>
+      </div>
+      <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="loading" id="loading"><div class="spinner"></div><span id="loadMsg">処理中...</span></div>
+      <div class="error-box" id="errorBox"></div>
+    </div>
+
+    <div class="results" id="results">
+
+      <!-- 基本情報 -->
+      <div class="card">
+        <div class="card-title">基本情報</div>
+        <div class="stat-grid" id="basicCards"></div>
+        <div class="coord-note" id="coordNote"></div>
+      </div>
+
+      <!-- 用途地域・建築規制 -->
+      <div class="card">
+        <div class="card-title">用途地域・建築規制</div>
+        <div id="zoningArea"></div>
+      </div>
+
+      <!-- ハザードリスク -->
+      <div class="card">
+        <div class="card-title">ハザードリスク</div>
+        <div id="hazardArea"></div>
+        <div style="margin-top:10px; font-size:12px; color:var(--gray-mid);">
+          詳細確認：<a href="https://disaportal.gsi.go.jp/" target="_blank">重ねるハザードマップ（国土地理院）</a>
+        </div>
+      </div>
+
+      <!-- 要確認チェックリスト -->
+      <div class="card">
+        <div class="card-title">要確認チェックリスト</div>
+        <div class="checklist" id="checkList"></div>
+        <div style="margin-top:12px; font-size:12px; color:var(--gray-mid);">
+          クリックで完了チェック。状態は自動保存されます。
+        </div>
+      </div>
+
+      <!-- メモ -->
+      <div class="card">
+        <div class="card-title">調査メモ</div>
+        <textarea class="memo-area" id="memoArea" placeholder="窓口確認結果、所感、追加調査事項など..."></textarea>
+        <div class="memo-actions">
+          <button class="btn btn-secondary btn-sm" onclick="saveMemo()">メモを保存</button>
+          <span id="memoSaved" style="font-size:12px; color:var(--green); display:none; align-items:center; gap:4px;">✓ 保存済み</span>
+        </div>
+      </div>
+
+      <!-- アクション -->
+      <div class="result-actions">
+        <button class="btn btn-primary" onclick="exportPDF()">📄 PDFで出力</button>
+        <button class="btn btn-secondary" onclick="saveToHistory()">💾 履歴に保存</button>
+        <button class="btn btn-secondary" onclick="copyReport()">📋 テキストコピー</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== 履歴タブ ===== -->
+  <div class="tab-panel" id="tab-history">
+    <div class="card">
+      <div class="card-title">調査履歴</div>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <!-- ===== 設定タブ ===== -->
+  <div class="tab-panel" id="tab-settings">
+    <div class="card">
+      <div class="card-title">APIキー設定</div>
+      <p style="font-size:13px; color:var(--text-sub); margin-bottom:12px;">
+        国土交通省「不動産情報ライブラリ」のAPIキーを設定すると、用途地域・建蔽率・容積率をより正確に取得できます。
+      </p>
+      <div style="display:flex; gap:8px;">
+        <input type="text" id="apiKeySettings" placeholder="APIキーを入力" style="flex:1; padding:9px 12px; border:1.5px solid var(--border); border-radius:var(--radius); font-size:13px; font-family:monospace;" />
+        <button class="btn btn-primary" onclick="saveApiKeyFromSettings()">保存</button>
+      </div>
+      <div style="margin-top:10px; padding:12px; background:var(--blue-light); border-radius:6px; font-size:12px; color:var(--blue);">
+        <strong>取得方法：</strong><br>
+        1. <a href="https://www.reinfolib.mlit.go.jp/api/request/" target="_blank">https://www.reinfolib.mlit.go.jp/api/request/</a> にアクセス<br>
+        2. 氏名・メールアドレス・利用目的を入力して申請<br>
+        3. 審査後（約5営業日）にAPIキーがメールで届く<br>
+        4. 届いたキーをここに貼り付けて保存
+      </div>
+      <div style="margin-top:12px; font-size:12px; color:var(--gray-mid);">
+        ⚠️ APIキーはこのブラウザのみに保存されます。他の端末では再入力が必要です。
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">データ管理</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="btn btn-secondary btn-sm" onclick="exportHistory()">📤 履歴をエクスポート</button>
+        <button class="btn btn-danger btn-sm" onclick="clearHistory()">🗑️ 履歴を全削除</button>
+      </div>
+      <p style="margin-top:10px; font-size:12px; color:var(--gray-mid);">※ データはこのブラウザのローカルストレージに保存されています。</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">このツールについて</div>
+      <div style="font-size:13px; color:var(--text-sub); line-height:1.8;">
+        <p>パナソニックホームズ 中部第一支社向け用地調査補助ツール</p>
+        <p style="margin-top:8px;"><strong>データソース：</strong></p>
+        <ul style="margin-left:16px; margin-top:4px;">
+          <li>座標変換：OpenStreetMap Nominatim API</li>
+          <li>用途地域：国土交通省 不動産情報ライブラリAPI（APIキー必要）</li>
+          <li>ハザード：国土地理院 重ねるハザードマップ</li>
+          <li>建築規制：国土数値情報（目安値）</li>
+        </ul>
+        <p style="margin-top:8px; color:var(--red);">※ 本ツールは調査補助目的です。最終判断は必ず行政窓口・専門家にご確認ください。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== STATE ====================
+const STORAGE_KEY = 'landResearch_v2';
+let currentResult = null;
+let checkStates = {};
+
+function getStore() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function setStore(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+}
+function getApiKey() {
+  const store = getStore();
+  return store.apiKey || '';
+}
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) return;
+  const store = getStore();
+  store.apiKey = key;
+  setStore(store);
+  document.getElementById('apiKeyNotice').innerHTML = '✅ APIキーが保存されました。次回調査から有効です。';
+}
+function saveApiKeyFromSettings() {
+  const key = document.getElementById('apiKeySettings').value.trim();
+  if (!key) return;
+  const store = getStore();
+  store.apiKey = key;
+  setStore(store);
+  alert('APIキーを保存しました。');
+}
+
+// ==================== TABS ====================
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const tabs = ['search','history','settings'];
+  const idx = tabs.indexOf(tab);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+  if (tab === 'history') renderHistory();
+  if (tab === 'settings') {
+    const key = getApiKey();
+    if (key) document.getElementById('apiKeySettings').value = key;
+  }
+}
+
+// ==================== ZONING DATA ====================
+const YOTO_MAP = {
+  '第一種低層住居専用地域':   { bcr:'50%', far:'80〜100%', fire:'指定なし', height:'10m or 12m', color:'ok', note:'低層住宅に最適。注文住宅向け◎' },
+  '第二種低層住居専用地域':   { bcr:'50〜60%', far:'100〜150%', fire:'指定なし', height:'10m or 12m', color:'ok', note:'低層住宅主体。小規模店舗も可' },
+  '第一種中高層住居専用地域': { bcr:'60%', far:'200%', fire:'指定なし（地域によって準防火）', height:'日影規制あり', color:'ok', note:'中高層住宅向け。注文住宅可' },
+  '第二種中高層住居専用地域': { bcr:'60%', far:'200%', fire:'指定なし（地域によって準防火）', height:'日影規制あり', color:'ok', note:'中高層住宅主体' },
+  '第一種住居地域':           { bcr:'60%', far:'200〜300%', fire:'準防火（一部）', height:'なし（日影規制あり）', color:'info', note:'住居主体だが店舗・事務所混在あり' },
+  '第二種住居地域':           { bcr:'60%', far:'200〜300%', fire:'準防火（一部）', height:'なし', color:'info', note:'住居主体。大型店舗・ホテル等も可' },
+  '準住居地域':               { bcr:'60%', far:'200〜300%', fire:'準防火（幹線沿い多い）', height:'なし', color:'info', note:'道路沿い立地多い。用途混在' },
+  '近隣商業地域':             { bcr:'80%', far:'200〜300%', fire:'準防火・防火', height:'なし', color:'warn', note:'商業施設混在。住宅建築は可' },
+  '商業地域':                 { bcr:'80%', far:'400〜600%', fire:'防火地域', height:'なし', color:'warn', note:'住宅建築可だが商業施設優先エリア' },
+  '準工業地域':               { bcr:'60%', far:'200%', fire:'準防火（一部）', height:'なし', color:'warn', note:'工場・住宅混在。住宅建築は可' },
+  '工業地域':                 { bcr:'60%', far:'200%', fire:'準防火（一部）', height:'なし', color:'danger', note:'⚠ 住宅建築可だが工場が主体' },
+  '工業専用地域':             { bcr:'60%', far:'200%', fire:'準防火（一部）', height:'なし', color:'danger', note:'⛔ 住宅建築不可' },
+  '市街化調整区域':           { bcr:'—', far:'—', fire:'—', height:'—', color:'danger', note:'⛔ 原則開発不可。34条許可要確認' },
+};
+
+// ==================== SEARCH ====================
+async function doSearch() {
+  const addr = document.getElementById('addr').value.trim();
+  if (!addr) return;
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true;
+  setProgress(0);
+  showLoading('住所から座標を取得中...');
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('apiKeyNotice').style.display = 'none';
+  checkStates = {};
+
+  try {
+    setProgress(20);
+    const geo = await geocode(addr);
+    if (!geo) throw new Error('住所から座標を取得できませんでした。より詳細な住所を入力してください。');
+
+    setProgress(40); showLoading('都市計画情報を取得中...');
+    const apiKey = getApiKey();
+    let zoning = null;
+    if (apiKey) {
+      zoning = await fetchZoningWithKey(geo.lat, geo.lon, apiKey);
+    }
+    if (!zoning) {
+      zoning = await fetchZoningFree(geo.lat, geo.lon);
+    }
+
+    setProgress(70); showLoading('ハザード情報を取得中...');
+    const hazard = await fetchHazardGSI(geo.lat, geo.lon);
+
+    setProgress(90); showLoading('結果を整理中...');
+
+    currentResult = { addr, geo, zoning, hazard, timestamp: new Date().toISOString() };
+    renderResults(currentResult);
+    setProgress(100);
+
+    if (!apiKey) {
+      document.getElementById('apiKeyNotice').style.display = 'block';
+    }
+
+  } catch(e) {
+    showError(e.message);
+  } finally {
+    btn.disabled = false;
+    hideLoading();
+    setTimeout(() => {
+      document.getElementById('progressBar').style.display = 'none';
+      document.getElementById('progressFill').style.width = '0%';
+    }, 800);
+  }
+}
+
+function setProgress(pct) {
+  document.getElementById('progressBar').style.display = 'block';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function showLoading(msg) {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('loadMsg').textContent = msg;
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = '❌ ' + msg;
+  el.style.display = 'block';
+}
+
+// ==================== GEOCODE ====================
+async function geocode(addr) {
+  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=jp`;
+  const res = await fetch(url, { headers: { 'Accept-Language': 'ja', 'User-Agent': 'LandResearchTool/2.0' } });
+  const data = await res.json();
+  if (!data || data.length === 0) return null;
+  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
+}
+
+// ==================== ZONING ====================
+async function fetchZoningWithKey(lat, lon, apiKey) {
+  try {
+    const url = `https://www.reinfolib.mlit.go.jp/ex-api/external/XKT010?response_format=geojson&datum=JGD2011&lon=${lon}&lat=${lat}`;
+    const res = await fetch(url, { headers: { 'Ocp-Apim-Subscription-Key': apiKey } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      return { source: 'mlit', ...data.features[0].properties };
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function fetchZoningFree(lat, lon) {
+  try {
+    // 国土数値情報 タイルAPI（認証不要）
+    const z = 14;
+    const x = Math.floor((lon + 180) / 360 * Math.pow(2, z));
+    const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
+    const url = `https://www.reinfolib.mlit.go.jp/ex-api/external/XKT004?response_format=geojson&z=${z}&x=${x}&y=${y}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.features || data.features.length === 0) return null;
+    // 最も近いフィーチャーを探す
+    const f = data.features[0];
+    return { source: 'tile', youto: f.properties.A29 || f.properties.youto || null, ...f.properties };
+  } catch { return null; }
+}
+
+// ==================== HAZARD ====================
+async function fetchHazardGSI(lat, lon) {
+  try {
+    const url = `https://disaportaldata.gsi.go.jp/rasiter/usehazardinfo?lon=${lon}&lat=${lat}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+// ==================== RENDER ====================
+function renderResults(r) {
+  const { addr, geo, zoning, hazard } = r;
+  const city = extractCity(addr);
+
+  // Basic
+  const isAichi = isAichiArea(addr);
+  document.getElementById('basicCards').innerHTML = `
+    <div class="stat-card ${isAichi ? 'ok' : 'warn'}">
+      <div class="stat-label">対象エリア</div>
+      <div class="stat-value">${isAichi ? '愛知県対応' : '要確認'}</div>
+    </div>
+    <div class="stat-card info">
+      <div class="stat-label">市区町村</div>
+      <div class="stat-value" style="font-size:13px;">${city || '—'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">データ取得</div>
+      <div class="stat-value" style="font-size:12px;">${zoning ? (zoning.source === 'mlit' ? '国交省API✓' : 'タイルAPI✓') : '目安値'}</div>
+      <div class="stat-sub">${new Date().toLocaleDateString('ja-JP')}</div>
+    </div>
+  `;
+  document.getElementById('coordNote').textContent = `座標: ${geo.lat.toFixed(5)}, ${geo.lon.toFixed(5)} ｜ ${geo.display ? geo.display.substring(0,60) + '...' : ''}`;
+
+  // Zoning
+  renderZoning(zoning, addr, city);
+
+  // Hazard
+  renderHazard(hazard);
+
+  // Checklist
+  renderChecklist(addr, zoning, city);
+
+  // Memo
+  const store = getStore();
+  const savedMemo = store.memos && store.memos[addr] ? store.memos[addr] : '';
+  document.getElementById('memoArea').value = savedMemo;
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderZoning(z, addr, city) {
+  const el = document.getElementById('zoningArea');
+  const isAdj = addr.includes('調整') || (z && (z.youto || '').includes('調整'));
+
+  if (!z || (!z.youto && !z.A29 && !z.A29_ja)) {
+    el.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card warn"><div class="stat-label">用途地域</div><div class="stat-value">取得不可</div><div class="stat-sub">窓口で確認</div></div>
+        <div class="stat-card"><div class="stat-label">建蔽率</div><div class="stat-value">—</div></div>
+        <div class="stat-card"><div class="stat-label">容積率</div><div class="stat-value">—</div></div>
+        <div class="stat-card"><div class="stat-label">防火指定</div><div class="stat-value">—</div></div>
+      </div>
+      <div class="zone-alert warn" style="margin-top:10px;">
+        📌 用途地域は<strong>${city || '各市町村'}都市計画課</strong>で確認してください。<br>
+        APIキーを設定すると自動取得できるようになります（設定タブ参照）。
+      </div>
+    `;
+    return;
+  }
+
+  const youto = z.youto || z.A29 || z.A29_ja || '不明';
+  const info = YOTO_MAP[youto] || { bcr: z.A29_A || '要確認', far: z.A30 || '要確認', fire: '要確認', height: '要確認', color: 'info', note: '' };
+  const bcrVal = z.A30a || z.kenperitsu || info.bcr;
+  const farVal = z.A30b || z.yosekiritsu || info.far;
+
+  el.innerHTML = `
+    <div class="stat-grid">
+      <div class="stat-card ${info.color}">
+        <div class="stat-label">用途地域</div>
+        <div class="stat-value" style="font-size:12px;">${youto}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">建蔽率</div>
+        <div class="stat-value">${bcrVal}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">容積率</div>
+        <div class="stat-value">${farVal}</div>
+      </div>
+      <div class="stat-card ${info.fire.includes('防火') ? 'warn' : ''}">
+        <div class="stat-label">防火指定</div>
+        <div class="stat-value" style="font-size:12px;">${info.fire}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">高度制限</div>
+        <div class="stat-value" style="font-size:12px;">${info.height}</div>
+      </div>
+      ${youto.includes('専用') ? `<div class="stat-card ok"><div class="stat-label">注文住宅</div><div class="stat-value">建築可</div></div>` : ''}
+      ${youto === '工業専用地域' ? `<div class="stat-card danger"><div class="stat-label">住宅</div><div class="stat-value">建築不可</div></div>` : ''}
+    </div>
+    ${info.note ? `<div class="zone-alert ${info.color}" style="margin-top:10px;">📝 ${info.note}</div>` : ''}
+    ${isAdj || youto.includes('調整') ? `
+      <div class="zone-alert danger" style="margin-top:10px;">
+        ⛔ <strong>市街化調整区域</strong>：原則開発不可。<br>
+        都市計画法34条の例外許可（条例11号・既存集落・43条等）を<br>
+        <strong>${city || '各市町村'}都市計画課</strong>で必ず確認してください。
+      </div>
+    ` : ''}
+    <div style="margin-top:8px; font-size:11px; color:var(--gray-mid);">
+      ※ 建蔽率・容積率は地区計画や道路幅員による制限で実際と異なる場合があります。必ず行政窓口で確認してください。
+    </div>
+  `;
+}
+
+function renderHazard(h) {
+  const el = document.getElementById('hazardArea');
+  const items = [
+    { name: '洪水浸水想定区域', key: 'flood', desc: '河川の氾濫による浸水リスク' },
+    { name: '土砂災害（特別）警戒区域', key: 'landslide', desc: 'レッドゾーン含む。補助金除外に注意' },
+    { name: '津波浸水想定区域', key: 'tsunami', desc: '海岸・河口周辺で確認' },
+    { name: '高潮浸水想定区域', key: 'storm_surge', desc: '臨海部・低地で確認' },
+    { name: '液状化リスク', key: 'liquefaction', desc: '地盤改良費用に影響する可能性' },
+  ];
+
+  const getLevel = (val) => {
+    if (val === undefined || val === null) return { label: 'データなし', cls: 'risk-unknown' };
+    if (val === '0' || val === 0 || val === false) return { label: 'リスクなし', cls: 'risk-low' };
+    if (val === '1' || val === 1) return { label: '要注意', cls: 'risk-mid' };
+    return { label: '⚠ 高リスク', cls: 'risk-high' };
+  };
+
+  if (!h) {
+    el.innerHTML = `
+      <table class="risk-table">
+        ${items.map(i => `<tr><td>${i.name}</td><td class="risk-unknown">要確認</td></tr>`).join('')}
+      </table>
+      <div style="margin-top:8px; font-size:12px; color:var(--gray-mid);">ハザードAPIへの接続に失敗しました。上部リンクから手動で確認してください。</div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `
+    <table class="risk-table">
+      ${items.map(i => {
+        const lv = getLevel(h[i.key]);
+        return `<tr><td>${i.name}<br><span style="font-size:11px;color:var(--gray-mid);">${i.desc}</span></td><td class="${lv.cls}">${lv.label}</td></tr>`;
+      }).join('')}
+    </table>
+  `;
+}
+
+function renderChecklist(addr, zoning, city) {
+  const youto = zoning ? (zoning.youto || zoning.A29 || '') : '';
+  const isAdj = youto.includes('調整') || addr.includes('調整');
+
+  const items = [
+    { id: 'c1', tag: 'req', title: '用途地域・建蔽率・容積率の正式確認', desc: '都市計画証明書を取得。道路斜線・北側斜線・日影規制・地区計画も確認。', office: `${city || '各市町村'}都市計画課` },
+    { id: 'c2', tag: 'req', title: '接道・前面道路の種別確認', desc: '建基法42条道路か確認。私道の場合は通行掘削同意書の状況、43条但し書き道路の場合は許可見込みを確認。', office: `${city || '各市町村'}建築指導課` },
+    { id: 'c3', tag: 'req', title: 'がけ条例・急傾斜地の適用確認', desc: '愛知県建築基準条例のがけ条例（高さ2m超・勾配30度超）に該当する場合、擁壁設置等が必要。東部丘陵地（豊田・岡崎）は特に注意。', office: `${city || '各市町村'}建築指導課 or 愛知県建設事務所` },
+    { id: 'c4', tag: 'req', title: '埋蔵文化財包蔵地の確認', desc: '工事前に試掘調査が必要となる場合あり。名古屋市・清須市・春日井市周辺は包蔵地が多い。工期に影響する可能性あり。', office: `${city || '各市町村'}教育委員会（文化財担当）` },
+    { id: 'c5', tag: 'req', title: '上下水道・排水先の確認', desc: '公共下水道区域外は浄化槽設置が必要。受益者負担金の有無、給水量の確保も確認。', office: `${city || '各市町村'}上下水道局` },
+    { id: 'c6', tag: 'req', title: 'ハザードマップの詳細確認', desc: '浸水深・土砂災害（レッドゾーン有無）・液状化リスクを確認。子育てグリーン住宅等の補助金は特別警戒区域（レッドゾーン）が除外要件。', office: '国土地理院「重ねるハザードマップ」' },
+    { id: 'c7', tag: isAdj ? 'adj' : 'opt', title: '市街化調整区域の開発可否確認（34条・43条）', desc: '34条11号条例指定区域か、分譲OKか、既存宅地（43条）か、線引き前既存宅地かを確認。自治体によって運用が大きく異なる。', office: `${city || '各市町村'}都市計画課（事前相談推奨）` },
+    { id: 'c8', tag: 'opt', title: '農地転用の可否確認（農振・青地）', desc: '農地の場合、農振地域の農用地区域（青地）は原則転用不可。市街化区域内農地は農業委員会への届出のみでOK。', office: `${city || '各市町村'}農業委員会` },
+    { id: 'c9', tag: 'opt', title: '地盤調査・地耐力の確認', desc: '元田・元水田・盛土地は特に重要。スウェーデン式サウンディング試験で確認。地盤改良費用を概算に含めること。', office: 'ハウスメーカー地盤調査担当' },
+    { id: 'c10', tag: 'opt', title: '周辺の開発状況・将来計画の確認', desc: '道路拡幅計画・区画整理事業・大型施設建設計画等、土地価値に影響する将来計画を確認。', office: `${city || '各市町村'}都市計画課` },
+  ];
+
+  const store = getStore();
+  if (!checkStates[currentResult?.addr]) checkStates[currentResult?.addr] = {};
+  const savedChecks = store.checks && store.checks[currentResult?.addr] ? store.checks[currentResult?.addr] : {};
+
+  const tagColors = { req: 'tag-req', opt: 'tag-opt', adj: 'tag-adj' };
+  const tagLabels = { req: '必須', opt: '推奨', adj: '調整区域' };
+
+  const cl = document.getElementById('checkList');
+  cl.innerHTML = items.map(item => {
+    const checked = savedChecks[item.id] || false;
+    return `
+      <div class="check-item ${checked ? 'checked' : ''}" id="ci-${item.id}" onclick="toggleCheck('${item.id}')">
+        <div class="check-box"></div>
+        <div class="check-body">
+          <div class="check-title">
+            <span class="check-tag ${tagColors[item.tag]}">${tagLabels[item.tag]}</span>
+            ${item.title}
+          </div>
+          <div class="check-desc">${item.desc}</div>
+          <div class="check-office">📍 確認先：${item.office}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleCheck(id) {
+  const addr = currentResult?.addr;
+  if (!addr) return;
+  const store = getStore();
+  if (!store.checks) store.checks = {};
+  if (!store.checks[addr]) store.checks[addr] = {};
+  store.checks[addr][id] = !store.checks[addr][id];
+  setStore(store);
+  const el = document.getElementById('ci-' + id);
+  el.classList.toggle('checked', store.checks[addr][id]);
+}
+
+// ==================== MEMO ====================
+function saveMemo() {
+  const addr = currentResult?.addr;
+  if (!addr) return;
+  const memo = document.getElementById('memoArea').value;
+  const store = getStore();
+  if (!store.memos) store.memos = {};
+  store.memos[addr] = memo;
+  setStore(store);
+  const saved = document.getElementById('memoSaved');
+  saved.style.display = 'flex';
+  setTimeout(() => { saved.style.display = 'none'; }, 2000);
+}
+
+// ==================== HISTORY ====================
+function saveToHistory() {
+  if (!currentResult) return;
+  const store = getStore();
+  if (!store.history) store.history = [];
+  const youto = currentResult.zoning ? (currentResult.zoning.youto || currentResult.zoning.A29 || '不明') : '取得不可';
+  const memo = store.memos && store.memos[currentResult.addr] ? store.memos[currentResult.addr] : '';
+  const checks = store.checks && store.checks[currentResult.addr] ? store.checks[currentResult.addr] : {};
+  const checkedCount = Object.values(checks).filter(Boolean).length;
+  const existing = store.history.findIndex(h => h.addr === currentResult.addr);
+  const record = {
+    addr: currentResult.addr,
+    youto,
+    lat: currentResult.geo.lat,
+    lon: currentResult.geo.lon,
+    timestamp: new Date().toISOString(),
+    memo,
+    checkedCount,
+    zoning: currentResult.zoning,
+    hazard: currentResult.hazard,
+  };
+  if (existing >= 0) {
+    store.history[existing] = record;
+  } else {
+    store.history.unshift(record);
+  }
+  if (store.history.length > 50) store.history = store.history.slice(0, 50);
+  setStore(store);
+  alert('履歴に保存しました。');
+}
+
+function renderHistory() {
+  const store = getStore();
+  const history = store.history || [];
+  const el = document.getElementById('historyList');
+  if (history.length === 0) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>まだ調査履歴がありません</p></div>`;
+    return;
+  }
+  el.innerHTML = history.map((h, i) => {
+    const d = new Date(h.timestamp);
+    const dateStr = d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    return `
+      <div class="history-item" style="margin-bottom:8px;">
+        <div class="history-addr">${h.addr}</div>
+        <div class="history-meta">
+          <span>📅 ${dateStr}</span>
+          ${h.checkedCount > 0 ? `<span>✅ ${h.checkedCount}件確認済</span>` : ''}
+          ${h.memo ? `<span>📝 メモあり</span>` : ''}
+        </div>
+        <div class="history-yoto">${h.youto}</div>
+        <div class="history-actions">
+          <button class="btn btn-primary btn-sm" onclick="loadHistory(${i})">再表示</button>
+          <button class="btn btn-secondary btn-sm" onclick="deleteHistory(${i})">削除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function loadHistory(idx) {
+  const store = getStore();
+  const h = store.history[idx];
+  if (!h) return;
+  document.getElementById('addr').value = h.addr;
+  switchTab('search');
+  currentResult = { addr: h.addr, geo: { lat: h.lat, lon: h.lon, display: '' }, zoning: h.zoning, hazard: h.hazard };
+  renderResults(currentResult);
+}
+
+function deleteHistory(idx) {
+  if (!confirm('この履歴を削除しますか？')) return;
+  const store = getStore();
+  store.history.splice(idx, 1);
+  setStore(store);
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('全履歴を削除しますか？この操作は取り消せません。')) return;
+  const store = getStore();
+  store.history = [];
+  setStore(store);
+  renderHistory();
+}
+
+function exportHistory() {
+  const store = getStore();
+  const history = store.history || [];
+  if (history.length === 0) { alert('履歴がありません。'); return; }
+  const lines = ['調査住所,用途地域,調査日時,メモ'];
+  history.forEach(h => {
+    const memo = (h.memo || '').replace(/,/g,'、').replace(/\n/g,' ');
+    lines.push(`"${h.addr}","${h.youto}","${new Date(h.timestamp).toLocaleString('ja-JP')}","${memo}"`);
+  });
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `用地調査履歴_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ==================== PDF EXPORT ====================
+function exportPDF() {
+  if (!currentResult) return;
+  window.print();
+}
+
+// ==================== TEXT COPY ====================
+function copyReport() {
+  if (!currentResult) return;
+  const { addr, geo, zoning } = currentResult;
+  const youto = zoning ? (zoning.youto || zoning.A29 || '不明') : '取得不可';
+  const info = YOTO_MAP[youto] || {};
+  const store = getStore();
+  const memo = store.memos && store.memos[addr] ? store.memos[addr] : '（なし）';
+  const checks = store.checks && store.checks[addr] ? store.checks[addr] : {};
+  const checkedCount = Object.values(checks).filter(Boolean).length;
+
+  const text = `
+■ 用地調査レポート
+━━━━━━━━━━━━━━━━━━━━
+住所: ${addr}
+調査日時: ${new Date().toLocaleString('ja-JP')}
+座標: ${geo.lat.toFixed(5)}, ${geo.lon.toFixed(5)}
+
+■ 用途地域・建築規制
+用途地域: ${youto}
+建蔽率: ${info.bcr || '—'}
+容積率: ${info.far || '—'}
+防火指定: ${info.fire || '—'}
+高度制限: ${info.height || '—'}
+
+■ 窓口確認進捗
+確認済: ${checkedCount}件
+
+■ 調査メモ
+${memo}
+
+━━━━━━━━━━━━━━━━━━━━
+※ 本レポートは参考値です。最終確認は行政窓口にて。
+  `.trim();
+
+  navigator.clipboard.writeText(text).then(() => {
+    alert('クリップボードにコピーしました。');
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('クリップボードにコピーしました。');
+  });
+}
+
+// ==================== UTILS ====================
+function extractCity(addr) {
+  const m = addr.match(/愛知県([^\s市区町村]*[市区町村])/);
+  if (m) return m[1];
+  const cities = ['名古屋市','一宮市','豊田市','岡崎市','春日井市','豊橋市','刈谷市','安城市','西尾市','大府市','知多市','東海市','半田市','豊川市','犬山市','小牧市','稲沢市','尾張旭市','日進市','清須市','北名古屋市','蟹江町','東郷町','豊明市','みよし市','長久手市','碧南市','知立市','弥富市','あま市'];
+  for (const c of cities) if (addr.includes(c)) return c;
+  return addr.split(/[0-9０-９]/)[0].replace('愛知県','').trim().substring(0, 12);
+}
+
+function isAichiArea(addr) {
+  return addr.includes('愛知') || ['名古屋','一宮','豊田','岡崎','春日井','豊橋','刈谷','安城','西尾','大府','知多','東海','半田','豊川','犬山','小牧','稲沢'].some(c => addr.includes(c));
+}
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', () => {
+  const key = getApiKey();
+  if (key) document.getElementById('apiKeySettings').value = key;
+  document.getElementById('addr').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
+  });
+});
+</script>
+</body>
+</html>
