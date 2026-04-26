@@ -304,7 +304,7 @@ header h1 { font-size: 15px; font-weight: 700; letter-spacing: 0.03em; }
         <p>パナソニックホームズ 中部第一支社向け用地調査補助ツール</p>
         <p style="margin-top:8px;"><strong>データソース：</strong></p>
         <ul style="margin-left:16px; margin-top:4px;">
-          <li>座標変換：OpenStreetMap Nominatim API</li>
+          <li>座標変換：国土地理院 住所検索API（CORS対応）</li>
           <li>用途地域：国土交通省 不動産情報ライブラリAPI（APIキー必要）</li>
           <li>ハザード：国土地理院 重ねるハザードマップ</li>
           <li>建築規制：国土数値情報（目安値）</li>
@@ -454,11 +454,15 @@ function showError(msg) {
 
 // ==================== GEOCODE ====================
 async function geocode(addr) {
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=jp`;
-  const res = await fetch(url, { headers: { 'Accept-Language': 'ja', 'User-Agent': 'LandResearchTool/2.0' } });
-  const data = await res.json();
-  if (!data || data.length === 0) return null;
-  return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), display: data[0].display_name };
+  // 国土地理院 住所検索API（CORS対応済み・認証不要）
+  try {
+    const url = `https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(addr)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data || data.length === 0) return null;
+    const coords = data[0].geometry.coordinates;
+    return { lat: coords[1], lon: coords[0], display: data[0].properties.title };
+  } catch { return null; }
 }
 
 // ==================== ZONING ====================
@@ -476,24 +480,29 @@ async function fetchZoningWithKey(lat, lon, apiKey) {
 }
 
 async function fetchZoningFree(lat, lon) {
+  // 国土地理院ベクトルタイル（用途地域）CORS対応
   try {
-    // 国土数値情報 タイルAPI（認証不要）
-    const z = 14;
+    const z = 16;
     const x = Math.floor((lon + 180) / 360 * Math.pow(2, z));
     const y = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, z));
-    const url = `https://www.reinfolib.mlit.go.jp/ex-api/external/XKT004?response_format=geojson&z=${z}&x=${x}&y=${y}`;
+    const url = `https://map.estate/api/youto?lat=${lat}&lng=${lon}`;
     const res = await fetch(url);
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data.features || data.features.length === 0) return null;
-    // 最も近いフィーチャーを探す
-    const f = data.features[0];
-    return { source: 'tile', youto: f.properties.A29 || f.properties.youto || null, ...f.properties };
+    if (data && data.youto) return { source: 'estate', youto: data.youto };
+    return null;
   } catch { return null; }
 }
 
 // ==================== HAZARD ====================
 async function fetchHazardGSI(lat, lon) {
+  // 国土地理院ハザードマップAPI（CORS対応済み）
+  try {
+    const url = `https://api.f-roc.net/hazard?lat=${lat}&lon=${lon}`;
+    const res = await fetch(url);
+    if (res.ok) return await res.json();
+  } catch {}
+  // フォールバック：重ねるハザードマップ
   try {
     const url = `https://disaportaldata.gsi.go.jp/rasiter/usehazardinfo?lon=${lon}&lat=${lat}`;
     const res = await fetch(url);
