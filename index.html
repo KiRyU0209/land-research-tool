@@ -1063,6 +1063,13 @@ function openAI() {
 高度制限: ${info.height || '—'}
 調査メモ: ${memo || 'なし'}`;
 
+  // APIキーをlocalStorageから読み込んでフォームに反映
+  const savedKey = localStorage.getItem('anthropic_api_key') || '';
+  const keyInput = document.getElementById('aiApiKey');
+  if (keyInput) {
+    keyInput.value = savedKey;
+    document.getElementById('aiKeyRow').style.display = savedKey ? 'none' : 'flex';
+  }
   document.getElementById('aiContext').textContent = `📍 ${addr} ／ ${youto}`;
   document.getElementById('aiMessages').innerHTML = '';
   aiHistory = [];
@@ -1101,6 +1108,13 @@ async function sendAI() {
   appendAIMessage('user', text);
   aiHistory.push({ role: 'user', content: text });
 
+  const apiKey = localStorage.getItem('anthropic_api_key') || document.getElementById('aiApiKey').value.trim();
+  if (!apiKey) {
+    document.getElementById('aiKeyRow').style.display = 'flex';
+    document.getElementById('aiApiKey').focus();
+    appendAIMessage('assistant', 'Anthropic APIキーを入力してください。https://console.anthropic.com/ で取得できます。');
+    return;
+  }
   const sendBtn = document.getElementById('aiSend');
   sendBtn.disabled = true;
 
@@ -1111,7 +1125,12 @@ async function sendAI() {
     const systemContent = SYSTEM_PROMPT + '\n\n' + aiLandContext;
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -1160,6 +1179,12 @@ function appendAIMessage(role, text, id, thinking) {
       <button class="ai-close" onclick="document.getElementById('aiOverlay').style.display='none'">×</button>
     </div>
     <div class="ai-context" id="aiContext">土地情報を読み込んでいます...</div>
+    <div id="aiKeyRow" style="background:#FDF0E0;border-bottom:1px solid #EDCDA0;padding:8px 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;">
+      <span style="font-size:12px;color:#B85C00;white-space:nowrap;">APIキー:</span>
+      <input type="password" id="aiApiKey" placeholder="sk-ant-..." style="flex:1;padding:5px 10px;font-size:12px;border:1px solid #EDCDA0;border-radius:6px;font-family:monospace;" />
+      <button onclick="saveAiKey()" style="padding:5px 12px;font-size:12px;background:#B85C00;color:white;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">保存</button>
+      <a href="https://console.anthropic.com/" target="_blank" style="font-size:11px;color:#B85C00;">取得 →</a>
+    </div>
     <div class="ai-messages" id="aiMessages"></div>
     <div class="ai-input-row">
       <textarea id="aiInput" placeholder="例：この土地の仕入れリスクを教えてください" onkeydown="handleAIKey(event)"></textarea>
